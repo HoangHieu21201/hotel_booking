@@ -112,6 +112,18 @@ model Staff {
   @@map("staff")
 }
 
+// Bảng lưu mã OTP phục vụ tính năng Quên mật khẩu
+model PasswordReset {
+  id        Int      @id @default(autoincrement())
+  email     String   @db.VarChar(255)
+  otpCode   String   @map("otp_code") @db.VarChar(6)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email], name: "idx_password_resets_email")
+  @@map("password_resets")
+}
+
 // ==========================================
 // 2. PHÒNG & TIỆN ÍCH
 // ==========================================

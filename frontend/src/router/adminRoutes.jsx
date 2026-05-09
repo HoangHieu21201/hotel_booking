@@ -1,45 +1,46 @@
 // frontend/src/router/adminRoutes.jsx
-import { Outlet } from 'react-router-dom';
-
-// Layout & Pages (Tạm thời import giả định, ta sẽ tạo các component này sau)
-// import AdminLayout from '../layouts/AdminLayout';
-// import Dashboard from '../pages/admin/Dashboard';
-// import Login from '../pages/admin/auth/Login';
+import React from 'react';
+import { Outlet, Navigate } from 'react-router-dom';
+import Login from '../pages/admin/auth/Login';
+import AdminLayout from '../layouts/AdminLayout';
 
 // Component bảo vệ Route: Nếu chưa có Token thì đá ra Login
 const ProtectedRoute = () => {
     const isAuthenticated = !!localStorage.getItem('token');
-    // Nếu chưa đăng nhập, chuyển hướng (Tạm dùng window.location, sau này dùng <Navigate>)
+    
     if (!isAuthenticated) {
-        window.location.href = '/admin/login';
-        return null;
+        return <Navigate to="/admin/login" replace />;
     }
-    return <Outlet />; // Outlet giống như <router-view> bên Vue
+    return <Outlet />;
 };
 
 export const adminRoutes = [
   {
     path: '/admin/login',
-    element: <div>Trang Đăng Nhập Admin (Sẽ code sau)</div>, // Chỗ này ghép Login.jsx vào
+    element: <Login />,
   },
   {
     path: '/admin',
-    element: <ProtectedRoute />, // Bọc bảo vệ toàn bộ khu vực /admin
+    element: <ProtectedRoute />,
     children: [
       {
         path: '',
-        element: <div>Khung Layout Admin (Sidebar + Header) <Outlet /></div>, // Chỗ này ghép AdminLayout vào
+        element: <AdminLayout />, // Đã tích hợp Layout chính thức
         children: [
           {
             path: 'dashboard',
-            element: <div>Trang Dashboard (Sẽ code sau)</div>,
+            element: (
+              <div>
+                <h1 className="text-2xl font-bold text-gray-800 mb-4">Tổng quan (Dashboard)</h1>
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                  <p className="text-gray-600">Dữ liệu tổng quan đang được cập nhật...</p>
+                </div>
+              </div>
+            ),
           },
-          {
-            path: 'rooms',
-            element: <div>Trang Quản lý Phòng (Active/All/Deleted Tab)</div>,
-          }
-        ],
-      },
-    ],
-  },
+          // Các trang khác (rooms, bookings...) sẽ được nhét vào đây ở các Task sau
+        ]
+      }
+    ]
+  }
 ];

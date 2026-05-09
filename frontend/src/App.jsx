@@ -1,8 +1,6 @@
 // frontend/src/App.jsx
 import React from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { adminRoutes } from './router/adminRoutes';
 import { clientRoutes } from './router/clientRoutes';
 

@@ -5,8 +5,10 @@
   "main": "index.js",
   "scripts": {
     "frontend": "npm run dev --prefix frontend",
+    "frontend:force": "npm run dev --prefix frontend -- --force",
     "backend": "nodemon backend/server.js",
     "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "dev:force": "concurrently \"npm run backend\" \"npm run frontend:force\"",
     "seed": "node backend/prisma/seed.js"
   },
   "keywords": [],
