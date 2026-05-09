@@ -1,0 +1,21 @@
+{
+  "name": "hotel-booking",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "frontend": "npm run dev --prefix frontend",
+    "backend": "nodemon backend/server.js",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "seed": "node backend/prisma/seed.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "install": "^0.13.0",
+    "nodemon": "^3.1.14"
+  }
+}

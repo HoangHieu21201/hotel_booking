@@ -1,0 +1,510 @@
+// Đây là file cấu hình Prisma của bạn
+// Tìm hiểu thêm tại: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 0. CẤU HÌNH HỆ THỐNG & CHÍNH SÁCH
+// ==========================================
+
+model Setting {
+  id                     Int      @id @default(1) // Ép luôn là 1
+  taxPercent             Decimal  @default(8.00) @map("tax_percent") @db.Decimal(5, 2)
+  serviceChargePercent   Decimal  @default(5.00) @map("service_charge_percent") @db.Decimal(5, 2)
+  updatedAt              DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model CancellationPolicy {
+  id                    Int      @id @default(autoincrement())
+  name                  String   @db.VarChar(100)
+  freeCancelBeforeDays  Int      @default(0) @map("free_cancel_before_days")
+  penaltyType           String   @default("percent") @map("penalty_type") @db.VarChar(20) // 'percent', 'first_night', 'fixed'
+  penaltyValue          Decimal  @default(100.00) @map("penalty_value") @db.Decimal(10, 2)
+  createdAt             DateTime @default(now()) @map("created_at")
+  
+  ratePlans RatePlan[]
+
+  @@map("cancellation_policies")
+}
+
+// ==========================================
+// 1. NGƯỜI DÙNG & PHÂN QUYỀN
+// ==========================================
+
+model Customer {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique @db.VarChar(255)
+  isEmailVerified Boolean   @default(false) @map("is_email_verified")
+  passwordHash    String    @map("password_hash") @db.VarChar(255)
+  fullName        String    @map("full_name") @db.VarChar(100)
+  phone           String?   @db.VarChar(20)
+  avatar          String?   @db.VarChar(255)
+  loyaltyPoints   Int       @default(0) @map("loyalty_points")
+  deletedAt       DateTime? @map("deleted_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  bookings            Booking[]
+  voucherUsages       VoucherUsage[]
+  reviews             Review[]
+  loyaltyTransactions LoyaltyTransaction[]
+
+  @@index([deletedAt], name: "idx_customers_not_deleted")
+  @@map("customers")
+}
+
+model Role {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(50)
+  slug        String    @unique @db.VarChar(50)
+  description String?   @db.Text
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  permissions RolePermission[]
+  staff       Staff[]
+
+  @@map("roles")
+}
+
+model RolePermission {
+  id        Int     @id @default(autoincrement())
+  roleId    Int     @map("role_id")
+  module    String  @db.VarChar(50)
+  canView   Boolean @default(false) @map("can_view")
+  canCreate Boolean @default(false) @map("can_create")
+  canUpdate Boolean @default(false) @map("can_update")
+  canDelete Boolean @default(false) @map("can_delete")
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, module], name: "unique_role_module")
+  @@map("role_permissions")
+}
+
+model Staff {
+  id           Int       @id @default(autoincrement())
+  roleId       Int       @map("role_id")
+  username     String    @unique @db.VarChar(100)
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  fullName     String    @map("full_name") @db.VarChar(100)
+  phone        String?   @db.VarChar(20)
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  role               Role                 @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  handledBookings    Booking[]
+  bookingLogs        BookingLog[]
+  postedFolioItems   FolioItem[]
+  auditLogs          AuditLog[]
+
+  @@map("staff")
+}
+
+// ==========================================
+// 2. PHÒNG & TIỆN ÍCH
+// ==========================================
+
+model Amenity {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  iconName  String?  @map("icon_name") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  roomTypes RoomTypeAmenity[]
+
+  @@map("amenities")
+}
+
+model RoomType {
+  id            Int       @id @default(autoincrement())
+  name          String    @db.VarChar(100)
+  slug          String    @unique @db.VarChar(100)
+  description   String?   @db.Text
+  basePrice     Decimal   @map("base_price") @db.Decimal(10, 2)
+  capacityAdult Int       @default(2) @map("capacity_adult")
+  capacityChild Int       @default(1) @map("capacity_child")
+  bedType       String?   @map("bed_type") @db.VarChar(50)
+  sizeSqm       Int?      @map("size_sqm")
+  deletedAt     DateTime? @map("deleted_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  images           RoomTypeImage[]
+  amenities        RoomTypeAmenity[]
+  ratePlans        RatePlan[]
+  inventories      RoomTypeInventory[]
+  seasonalPrices   SeasonalPrice[]
+  rooms            Room[]
+  bookingRoomTypes BookingRoomType[]
+  reviews          Review[]
+
+  @@map("room_types")
+}
+
+model RoomTypeImage {
+  id           Int     @id @default(autoincrement())
+  roomTypeId   Int     @map("room_type_id")
+  imageUrl     String  @map("image_url") @db.VarChar(255)
+  isPrimary    Boolean @default(false) @map("is_primary")
+  displayOrder Int     @default(0) @map("display_order")
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@map("room_type_images")
+}
+
+model RoomTypeAmenity {
+  roomTypeId Int @map("room_type_id")
+  amenityId  Int @map("amenity_id")
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  amenity  Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([roomTypeId, amenityId])
+  @@map("room_type_amenities")
+}
+
+model RatePlan {
+  id                   Int      @id @default(autoincrement())
+  roomTypeId           Int      @map("room_type_id")
+  cancellationPolicyId Int      @map("cancellation_policy_id")
+  name                 String   @db.VarChar(100)
+  mealPlan             String   @default("none") @map("meal_plan") @db.VarChar(50) // 'none', 'breakfast', 'half_board', 'full_board'
+  pricingType          String   @default("modifier") @map("pricing_type") @db.VarChar(20) // 'modifier', 'override'
+  priceValue           Decimal  @default(0) @map("price_value") @db.Decimal(10, 2)
+  isDefault            Boolean  @default(false) @map("is_default")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  roomType           RoomType           @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  cancellationPolicy CancellationPolicy @relation(fields: [cancellationPolicyId], references: [id], onDelete: Restrict)
+  bookingRoomTypes   BookingRoomType[]
+
+  @@unique([roomTypeId, isDefault], name: "idx_rate_plans_default")
+  @@index([roomTypeId], name: "idx_rate_plans_room_type_id")
+  @@map("rate_plans")
+}
+
+model RoomTypeInventory {
+  date           DateTime @db.Date
+  roomTypeId     Int      @map("room_type_id")
+  totalRooms     Int      @default(0) @map("total_rooms")
+  availableRooms Int      @default(0) @map("available_rooms")
+  reservedRooms  Int      @default(0) @map("reserved_rooms")
+  blockedRooms   Int      @default(0) @map("blocked_rooms")
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@id([date, roomTypeId])
+  @@index([date], name: "idx_room_type_inventory_date")
+  @@map("room_type_inventory")
+}
+
+model SeasonalPrice {
+  id         Int      @id @default(autoincrement())
+  roomTypeId Int      @map("room_type_id")
+  startDate  DateTime @map("start_date") @db.Date
+  endDate    DateTime @map("end_date") @db.Date
+  price      Decimal  @db.Decimal(10, 2)
+  note       String?  @db.VarChar(255)
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@index([startDate, endDate], name: "idx_seasonal_prices_dates")
+  @@map("seasonal_prices")
+}
+
+model Room {
+  id          Int       @id @default(autoincrement())
+  roomTypeId  Int       @map("room_type_id")
+  roomNumber  String    @unique @map("room_number") @db.VarChar(20)
+  floor       Int?
+  status      String    @default("available") @db.VarChar(20) // 'available', 'occupied', 'cleaning', 'maintenance', 'out_of_order'
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  roomType     RoomType      @relation(fields: [roomTypeId], references: [id], onDelete: Restrict)
+  bookingRooms BookingRoom[]
+
+  @@map("rooms")
+}
+
+// ==========================================
+// 3. VOUCHER
+// ==========================================
+
+model Voucher {
+  id                 Int       @id @default(autoincrement())
+  code               String    @unique @db.VarChar(50)
+  discountType       String?   @map("discount_type") @db.VarChar(20) // 'percent', 'fixed_amount'
+  discountValue      Decimal   @map("discount_value") @db.Decimal(10, 2)
+  maxDiscountAmount  Decimal?  @map("max_discount_amount") @db.Decimal(10, 2)
+  minBookingAmount   Decimal?  @map("min_booking_amount") @db.Decimal(10, 2)
+  startDate          DateTime? @map("start_date") @db.Timestamptz
+  endDate            DateTime? @map("end_date") @db.Timestamptz
+  usageLimit         Int?      @map("usage_limit")
+  usageCount         Int       @default(0) @map("usage_count")
+  status             String    @default("active") @db.VarChar(20) // 'active', 'inactive', 'expired'
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  usages   VoucherUsage[]
+  bookings Booking[]
+
+  @@map("vouchers")
+}
+
+model VoucherUsage {
+  voucherId  Int @map("voucher_id")
+  customerId Int @map("customer_id")
+  usedCount  Int @default(1) @map("used_count")
+
+  voucher  Voucher  @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@id([voucherId, customerId])
+  @@map("voucher_usages")
+}
+
+// ==========================================
+// 4. ĐƠN HÀNG (BOOKING) & FOLIO
+// ==========================================
+
+model Booking {
+  // FIXED HERE: Sử dụng uuid() nguyên bản của Prisma thay vì PostgreSQL function
+  id                  String    @id @default(uuid()) @db.Uuid
+  customerId          Int?      @map("customer_id")
+  handledBy           Int?      @map("handled_by")
+  bookingCode         String    @unique @map("booking_code") @db.VarChar(50)
+  externalBookingId   String?   @map("external_booking_id") @db.VarChar(100)
+  source              String    @default("website") @db.VarChar(20) // 'website', 'walk-in', 'agoda', 'booking_com', 'other'
+  status              String    @default("pending") @db.VarChar(20) // 'pending', 'confirmed', 'checked_in', 'checked_out', 'no_show', 'cancelled'
+  paymentStatus       String    @default("unpaid") @map("payment_status") @db.VarChar(20) // 'unpaid', 'partially_paid', 'paid', 'refunded'
+  checkInDate         DateTime  @map("check_in_date") @db.Date
+  checkOutDate        DateTime  @map("check_out_date") @db.Date
+  actualCheckIn       DateTime? @map("actual_check_in") @db.Timestamptz
+  actualCheckOut      DateTime? @map("actual_check_out") @db.Timestamptz
+  currency            String    @default("VND") @db.VarChar(10)
+  baseTotalPrice      Decimal   @map("base_total_price") @db.Decimal(10, 2)
+  voucherId           Int?      @map("voucher_id")
+  discountAmount      Decimal   @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  taxAmount           Decimal   @default(0) @map("tax_amount") @db.Decimal(10, 2)
+  serviceChargeAmount Decimal   @default(0) @map("service_charge_amount") @db.Decimal(10, 2)
+  finalTotalPrice     Decimal   @map("final_total_price") @db.Decimal(10, 2)
+  guestName           String    @map("guest_name") @db.VarChar(100)
+  guestEmail          String    @map("guest_email") @db.VarChar(255)
+  guestPhone          String    @map("guest_phone") @db.VarChar(20)
+  specialRequests     String?   @map("special_requests") @db.Text
+  cancellationReason  String?   @map("cancellation_reason") @db.Text
+  internalNotes       String?   @map("internal_notes") @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  customer            Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  staff               Staff?               @relation(fields: [handledBy], references: [id], onDelete: SetNull)
+  voucher             Voucher?             @relation(fields: [voucherId], references: [id], onDelete: SetNull)
+  bookingRoomTypes    BookingRoomType[]
+  bookingGuests       BookingGuest[]
+  bookingRooms        BookingRoom[]
+  folios              Folio[]
+  bookingLogs         BookingLog[]
+  loyaltyTransactions LoyaltyTransaction[]
+  payments            Payment[]
+  review              Review?
+
+  @@index([customerId], name: "idx_bookings_customer_id")
+  @@index([status], name: "idx_bookings_status")
+  @@index([checkInDate, checkOutDate], name: "idx_bookings_check_in_out")
+  @@map("bookings")
+}
+
+model BookingRoomType {
+  id           Int      @id @default(autoincrement())
+  bookingId    String   @map("booking_id") @db.Uuid
+  roomTypeId   Int      @map("room_type_id")
+  ratePlanId   Int      @map("rate_plan_id")
+  checkInDate  DateTime @map("check_in_date") @db.Date
+  checkOutDate DateTime @map("check_out_date") @db.Date
+  quantity     Int      @default(1)
+  pricePerNight Decimal  @map("price_per_night") @db.Decimal(10, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  booking               Booking                 @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  roomType              RoomType                @relation(fields: [roomTypeId], references: [id], onDelete: Restrict)
+  ratePlan              RatePlan                @relation(fields: [ratePlanId], references: [id], onDelete: Restrict)
+  bookingRoomDailyPrices BookingRoomDailyPrice[]
+  bookingRooms          BookingRoom[]
+
+  @@index([roomTypeId], name: "idx_booking_room_types_room_type_id")
+  @@map("booking_room_types")
+}
+
+model BookingRoomDailyPrice {
+  id                 Int      @id @default(autoincrement())
+  bookingRoomTypeId  Int      @map("booking_room_type_id")
+  date               DateTime @db.Date
+  price              Decimal  @db.Decimal(10, 2)
+
+  bookingRoomType BookingRoomType @relation(fields: [bookingRoomTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingRoomTypeId, date], name: "unique_daily_price")
+  @@map("booking_room_daily_prices")
+}
+
+model BookingGuest {
+  id         Int    @id @default(autoincrement())
+  bookingId  String @map("booking_id") @db.Uuid
+  fullName   String @map("full_name") @db.VarChar(100)
+  idNumber   String? @map("id_number") @db.VarChar(50)
+  guestType  String @default("adult") @map("guest_type") @db.VarChar(20) // 'adult', 'child'
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId], name: "idx_booking_guests_booking_id")
+  @@map("booking_guests")
+}
+
+model BookingRoom {
+  id                 Int      @id @default(autoincrement())
+  bookingId          String   @map("booking_id") @db.Uuid
+  bookingRoomTypeId  Int      @map("booking_room_type_id")
+  roomId             Int      @map("room_id")
+  date               DateTime @db.Date
+  priceAtThatTime    Decimal  @map("price_at_that_time") @db.Decimal(10, 2)
+
+  booking         Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingRoomType BookingRoomType @relation(fields: [bookingRoomTypeId], references: [id], onDelete: Cascade)
+  room            Room            @relation(fields: [roomId], references: [id], onDelete: Restrict)
+
+  @@unique([roomId, date], name: "unique_room_date")
+  @@index([date], name: "idx_booking_rooms_date")
+  @@index([bookingId], name: "idx_booking_rooms_booking_id")
+  @@index([roomId, date], name: "idx_booking_rooms_room_id_date")
+  @@map("booking_rooms")
+}
+
+model Folio {
+  id          Int      @id @default(autoincrement())
+  bookingId   String   @map("booking_id") @db.Uuid
+  status      String   @default("open") @db.VarChar(20) // 'open', 'closed', 'voided'
+  totalAmount Decimal  @default(0) @map("total_amount") @db.Decimal(10, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  booking    Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  folioItems FolioItem[]
+
+  @@index([bookingId], name: "idx_folios_booking_id")
+  @@map("folios")
+}
+
+model FolioItem {
+  id          Int      @id @default(autoincrement())
+  folioId     Int      @map("folio_id")
+  category    String   @db.VarChar(50) // 'room_charge', 'minibar', 'laundry', 'restaurant', 'spa', 'other'
+  description String   @db.Text
+  amount      Decimal  @db.Decimal(10, 2)
+  quantity    Int      @default(1)
+  postedBy    Int?     @map("posted_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  folio Folio  @relation(fields: [folioId], references: [id], onDelete: Cascade)
+  staff Staff? @relation(fields: [postedBy], references: [id], onDelete: SetNull)
+
+  @@map("folio_items")
+}
+
+// ==========================================
+// 5. THANH TOÁN & LOGS
+// ==========================================
+
+model Payment {
+  id             Int       @id @default(autoincrement())
+  bookingId      String    @map("booking_id") @db.Uuid
+  amount         Decimal   @db.Decimal(10, 2)
+  paymentMethod  String    @map("payment_method") @db.VarChar(50)
+  transactionId  String?   @unique @map("transaction_id") @db.VarChar(100)
+  status         String    @default("completed") @db.VarChar(20) // 'pending', 'completed', 'failed', 'refunded'
+  refundAmount   Decimal   @default(0) @map("refund_amount") @db.Decimal(10, 2)
+  refundedAt     DateTime? @map("refunded_at") @db.Timestamptz
+  note           String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId], name: "idx_payments_booking_id")
+  @@map("payments")
+}
+
+model BookingLog {
+  id          Int      @id @default(autoincrement())
+  bookingId   String   @map("booking_id") @db.Uuid
+  action      String   @db.VarChar(100)
+  performedBy Int?     @map("performed_by")
+  note        String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  staff   Staff?  @relation(fields: [performedBy], references: [id], onDelete: SetNull)
+
+  @@map("booking_logs")
+}
+
+model LoyaltyTransaction {
+  id              Int       @id @default(autoincrement())
+  customerId      Int       @map("customer_id")
+  bookingId       String?   @map("booking_id") @db.Uuid
+  points          Int
+  transactionType String?   @map("transaction_type") @db.VarChar(20) // 'earn', 'redeem', 'expire'
+  expireDate      DateTime? @map("expire_date") @db.Date
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  booking  Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@map("loyalty_transactions")
+}
+
+model Review {
+  id             Int      @id @default(autoincrement())
+  bookingId      String   @unique @map("booking_id") @db.Uuid
+  customerId     Int      @map("customer_id")
+  roomTypeId     Int      @map("room_type_id")
+  rating         Int
+  comment        String?  @db.Text
+  replyFromStaff String?  @map("reply_from_staff") @db.Text
+  isApproved     Boolean  @default(true) @map("is_approved")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  tableName   String   @map("table_name") @db.VarChar(50)
+  recordId    String   @map("record_id") @db.Text
+  action      String   @db.VarChar(20) // 'INSERT', 'UPDATE', 'DELETE'
+  oldData     Json?    @map("old_data")
+  newData     Json?    @map("new_data")
+  performedBy Int?     @map("performed_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  staff Staff? @relation(fields: [performedBy], references: [id], onDelete: SetNull)
+
+  @@index([tableName, recordId], name: "idx_audit_logs_table_record")
+  @@map("audit_logs")
+}
