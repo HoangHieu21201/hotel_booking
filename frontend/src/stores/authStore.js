@@ -2,7 +2,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// Sử dụng Zustand kết hợp Middleware persist để tự động lưu vào LocalStorage
 export const useAuthStore = create(
   persist(
     (set) => ({
@@ -10,21 +9,18 @@ export const useAuthStore = create(
       token: null,
       permissions: [],
 
-      // Hàm gọi khi Login thành công
       setCredentials: (user, token, permissions) => {
-        localStorage.setItem('token', token); // Lưu tách token ra để Axios dễ lấy
+        localStorage.setItem('admin_token', token); // Lưu tách biệt với customer
         set({ user, token, permissions });
       },
 
-      // Hàm gọi khi Logout
       logout: () => {
-        localStorage.removeItem('token');
+        localStorage.removeItem('admin_token');
         set({ user: null, token: null, permissions: [] });
       },
     }),
     {
-      name: 'auth-storage', // Key lưu trong LocalStorage
-      // Chỉ lưu giữ user và permissions, token đã lưu tách riêng ở trên
+      name: 'admin-auth-storage', // Đổi tên bộ nhớ đệm
       partialize: (state) => ({ user: state.user, permissions: state.permissions }),
     }
   )

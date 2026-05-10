@@ -1,15 +1,19 @@
 // backend/middlewares/validate.middleware.js
 
-// Middleware bắt lỗi schema Zod và trả về mảng lỗi chuẩn của PO
 export const validate = (schema) => async (req, res, next) => {
   try {
     await schema.parseAsync(req.body);
     next();
   } catch (error) {
-    const formattedErrors = error.errors.map((err) => ({
-      field: err.path.join('.'),
-      message: err.message,
-    }));
-    return res.status(400).json({ success: false, errors: formattedErrors });
+    // Đảm bảo chỉ bắt và format lỗi của Zod (ZodError)
+    if (error.name === 'ZodError' || error.errors) {
+      const formattedErrors = error.errors.map((err) => ({
+        field: err.path.join('.'),
+        message: err.message,
+      }));
+      return res.status(400).json({ success: false, errors: formattedErrors });
+    }
+    // Nếu là lỗi khác, đẩy ra Global Handler tránh làm sập luồng
+    next(error);
   }
 };

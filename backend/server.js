@@ -4,7 +4,9 @@ import cors from 'cors';
 
 // Import các Admin Routes
 import adminAuthRoutes from './routes/admin/auth.routes.js';
-// Sau này sẽ import thêm clientRoutes ở đây: import clientAuthRoutes from './routes/client/auth.routes.js';
+import roleRoutes from './routes/admin/role.routes.js';
+import moduleRoutes from './routes/admin/module.routes.js';
+import staffRoutes from './routes/admin/staff.routes.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -15,8 +17,9 @@ app.use(express.json());
 
 // Phân luồng Routes rõ ràng cho Admin và Client
 app.use('/api/admin/auth', adminAuthRoutes); 
-// app.use('/api/client/auth', clientAuthRoutes); // Chuẩn bị sẵn cho tương lai
-
+app.use('/api/admin/roles', roleRoutes);
+app.use('/api/admin/modules', moduleRoutes)
+app.use('/api/admin/staffs', staffRoutes);
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error(err.stack);

@@ -1,4 +1,3 @@
-// frontend/src/components/admin/Header.jsx
 import React from 'react';
 import { Menu, LogOut, User } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
@@ -11,6 +10,14 @@ export default function Header({ toggleSidebar }) {
   const handleLogout = () => {
     logout();
     navigate('/admin/login');
+  };
+
+  // Hàm helper để render role an toàn
+  // Xử lý cả trường hợp role là string (đề phòng) và role là object
+  const getRoleDisplay = () => {
+    if (!user?.role) return 'Staff';
+    if (typeof user.role === 'string') return user.role;
+    return user.role.name || 'Staff';
   };
 
   return (
@@ -31,7 +38,8 @@ export default function Header({ toggleSidebar }) {
           </div>
           <div className="hidden md:block">
             <p className="text-sm font-medium text-gray-700">{user?.fullName || 'Quản trị viên'}</p>
-            <p className="text-xs text-gray-500 capitalize">{user?.role || 'Staff'}</p>
+            {/* FIX LỖI OBJECT REACT TẠI ĐÂY */}
+            <p className="text-xs text-gray-500 capitalize">{getRoleDisplay()}</p>
           </div>
         </div>
         
